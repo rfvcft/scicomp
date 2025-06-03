@@ -1,7 +1,9 @@
+from collections import defaultdict
 from time import time
 from typing import Callable
 import numpy as np
 from numpy import linalg as LA
+from scipy.sparse import lil_matrix
 
 class Grid:
     """
@@ -30,6 +32,28 @@ class Grid:
                     L[self.n(i,j)][self.n(i,j+1)] = 1
         return L
     
+    # Laplacian implemented as sparse matrix
+    # Computes self.boundary_points which maps indices n to corresponding boundary points (i, j)
+    def sparse_laplacian(self) -> lil_matrix:
+        def in_bounds(i, j): 
+            return (0 <= i < self.N) and (0 <= j < self.N)
+        
+        L = lil_matrix((self.N**2, self.N**2)) # sparse zero matrix
+        boundary_points = defaultdict(list) # keep track of where boundary values need to land
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        for i in range(self.N):
+            for j in range(self.N):
+                L[self.n(i, j), self.n(i, j)] = -4 
+                for dx, dy in directions:
+                    i_, j_ = i + dx, j + dy
+                    if in_bounds(i_, j_):
+                        L[self.n(i, j), self.n(i_, j_)] = 1
+                    else:
+                        boundary_points[self.n(i, j)].append((i_, j_))
+        self.boundary_points = boundary_points
+        return L
+
+    
     # Creation of Laplacian using diagonals
     def laplacian(self) -> np.matrix:
         a = -4*np.ones(self.N**2, dtype=int)
@@ -52,6 +76,10 @@ class Grid:
         start_time = time()
         self.laplacian()
         print("Fast laplacian: ", time() - start_time, "s.")
+
+        start_time = time()
+        self.sparse_laplacian()
+        print("Sparse laplacian: ", time() - start_time, "s.")
 
 class TimeStepper:
     
@@ -111,7 +139,7 @@ class TimeStepper:
 
 
 if __name__ == '__main__':
-    N = 30
+    N = 4
     M = 10
     T = 5
     u0 = np.zeros(N**2)
@@ -129,9 +157,10 @@ if __name__ == '__main__':
         return np.zeros(N**2)
 
     g = Grid(N)
+  
     # np.set_printoptions(threshold=np.inf)
-    # print(g.laplacian_fast())
-    # print(g.laplacian())
+    
+
     # print(g.laplacian_fast() - g.laplacian())
     # print(np.array_equal(g.laplacian_fast() - g.laplacian(), np.zeros((N**2, N**2), dtype=int)))
     # g.test_speeds()
@@ -140,5 +169,15 @@ if __name__ == '__main__':
     # print(sorted_eig_vals[0], sorted_eig_vals[-1], sorted_eig_vals[-1]/sorted_eig_vals[0])
 
 
-    ts = TimeStepper(N, M, T, u0, f, g)
+    #ts = TimeStepper(N, M, T, u0, f, g)
 
+    print(g.laplacian())
+    print()
+    sparse_laplacian = g.sparse_laplacian()
+    dense_laplacian = sparse_laplacian.toarray()
+    print(dense_laplacian)
+    print()
+    v = np.zeros(N**2)
+    v[1] = 1.0
+    w = sparse_laplacian @ v
+    print(w)
