@@ -19,6 +19,17 @@ class Grid:
     def n(self, i : int, j : int) -> int:
         return self.N*i + j
 
+    @staticmethod
+    def to_grid(us : list[np.ndarray]) -> list[np.matrix]:
+        """Takes a list of u-vectors, and returns a list of the corresponding grid of u-values"""
+        u_grids = []
+        for u in us:
+            u_grid = np.zeros((N, N))
+            for n, u_n in enumerate(u):
+                u_grid[n//N,n%N] = u_n
+            u_grids.append(u_grid)
+        return u_grids
+
     def generate_inner_points(self) -> np.ndarray:
         inner_points = np.zeros((self.N**2, 2))
         for i in range(N):
@@ -113,7 +124,7 @@ class TimeStepper:
         self.dx = 1 / (N+1)
         self.dt = 1 / (M-1)
         self.grid = Grid(self.N)
-        self.A = np.eye(N**2) - self.dt * self.grid.laplacian()
+        self.A = np.eye(N**2) - self.dt * self.grid.sparse_laplacian()
         self.inner_points = self.grid.generate_inner_points()
 
     def solve(self, u_old : np.ndarray, t : float) -> np.ndarray:
@@ -122,32 +133,50 @@ class TimeStepper:
         
     def b(self, u_old : np.ndarray, t : float) -> np.ndarray:
         """Generates a right hand side for the problem, given a time t, which takes in to consideration the source term and the boundary terms"""
-        return u_old + self.f(self.inner_points, t) + self.g(self.grid.boundary_points, t)
+        return u_old + self.dt*self.f(self.inner_points, t) + self.dt*(1/self.dx)**2 * self.g(self.grid.boundary_points, t)
 
     def step(self) -> None:
         times = np.linspace(0, self.T, num=self.M)
         u = self.u0
         all_u = [self.u0]
         for t in times:
-            # Visualize here if that is wanted, probably something like this:
-            # if visualize:
-            #     v.visualize(u)
-            # or save all u:s and visualize in the end
             u = self.solve(u, t)
             all_u.append(u)
         return all_u
 
+class Visualizer:
+
+    def __init__(self, all_u : list[np.ndarray], interval : int):
+        self.all_u = all_u
+        self.interval = interval
+        self.u_grids = Grid.to_grid(all_u)
+    
+    def animate(self) -> None:
+        fig, ax = plt.subplots()
+        cax = ax.imshow(self.u_grids[0], cmap='hot')
+        cbar = fig.colorbar(cax, ax=ax)
+
+        def update(frame : int):
+            u = self.u_grids[frame]
+            cax.set_data(u)
+            cax.set_clim(vmin=u.min(), vmax=u.max())
+            cbar.update_normal(cax)
+            return [cax]
+        
+        ani = animation.FuncAnimation(fig, update, frames=len(self.u_grids), interval=self.interval, blit=False, repeat=False)
+        plt.show()
 
 if __name__ == '__main__':
-    N = 30
+    N = 40
     M = 300
     T = 3
     u0 = np.zeros(N**2)
 
     def f(xs : np.ndarray, t : float) -> np.ndarray:
         def f_internal(x_ : float, y_: float, t_ : float) -> bool:
-            return (x_-0.5 + 0.3*np.cos(2*np.pi*t_))**2 + (y_-0.5+np.sin(2*np.pi*t_))**2 < 0.03
-
+            # return (x_ - 0.5 + 0.3*np.cos(2*np.pi*t_))**2 + (y_ - 0.5 + 0.3*np.sin(2*np.pi*t_))**2 < 0.03
+            return (x_ - 0.5)**2 + (y_ - 0.5)**2 < 0.01
+            # return 0.5
 
         out = np.zeros(len(xs))
         for n, (x, y) in enumerate(xs):
@@ -157,6 +186,14 @@ if __name__ == '__main__':
 
     def g(boundary : dict[int, list], t : float) -> np.ndarray:
         def g_internal(x_, y_, t_):
+            # return np.sin(2*np.pi*t_)
+            # print(x_, y_)
+            if t_ < T/2:
+                if x_ <= 0 or x_ > N**2: 
+                    return 0.03
+            else:
+                if y_ <= 0 or y_ > N**2:
+                    return 0.03
             return 0
 
         out = np.zeros(N**2)
@@ -167,18 +204,6 @@ if __name__ == '__main__':
     ts = TimeStepper(N, M, T, u0, f, g)
     all_u = ts.step()
 
-    u_grids = []
-    for u in all_u:
-        u_grid = np.zeros((N, N))
-        for n, u_n in enumerate(u):
-            u_grid[n//N,n%N] = u_n
-        u_grids.append(u_grid)
+    vis = Visualizer(all_u, int(1000*T/(M-1)))
+    vis.animate()
 
-    fig, ax = plt.subplots()
-    artists = []
-    for u_grid in u_grids:
-        container = ax.imshow(u_grid, cmap='hot', interpolation='nearest')
-        artists.append([container])
-    
-    ani = animation.ArtistAnimation(fig=fig, artists=artists, interval=200, repeat=True)
-    plt.show()
