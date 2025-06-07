@@ -1,11 +1,12 @@
 from collections import defaultdict
 from time import time
-from typing import Callable
+from typing import Callable, Optional
 import numpy as np
 from numpy import linalg as LA
-from scipy.sparse import lil_matrix
+from scipy.sparse import lil_matrix, csr_matrix, identity
 from matplotlib import pyplot as plt
 from matplotlib import animation
+import cg
 
 class Grid:
     """
@@ -17,50 +18,39 @@ class Grid:
         self.boundary_points = defaultdict(list)
     
     def n(self, i : int, j : int) -> int:
-        return self.N*i + j
+        return self.N * i + j
+    
+    def inverse_n(self, n: int) -> tuple[int, int]:
+        return n // self.N, n % self.N
 
-    @staticmethod
-    def to_grid(us : list[np.ndarray]) -> list[np.matrix]:
-        """Takes a list of u-vectors, and returns a list of the corresponding grid of u-values"""
-        u_grids = []
-        for u in us:
-            u_grid = np.zeros((N, N))
-            for n, u_n in enumerate(u):
-                u_grid[n//N,n%N] = u_n
-            u_grids.append(u_grid)
-        return u_grids
+    def to_grid(self, u: np.ndarray) -> np.matrix:
+        """ Takes a u-vector, and returns grid of u-values """
+        u_grid  = np.zeros((self.N, self.N))
+        for n, u_n in enumerate(u):
+            u_grid[self.inverse_n(n)] = u_n
+        return u_grid
 
-    def generate_inner_points(self) -> np.ndarray:
-        inner_points = np.zeros((self.N**2, 2))
-        for i in range(N):
-            for j in range(N):
-                # Translate the inner point into array form, but keep the x- and y- values
-                inner_points[self.n(i, j)] = [(i+1)*self.dx, (j+1)*self.dx]
-        return inner_points
-
-    # "Intuitive" creation of Laplacian
-    def slow_laplacian(self) -> np.matrix:
-        L = np.zeros((self.N**2, self.N**2), dtype=int)
+    def generate_inner_points_components(self) -> tuple[np.ndarray, np.ndarray]:
+        ''' Generates x_1, x_2 coordinates for inner points. '''
+        x_1 = np.zeros(self.N**2)
+        x_2 = np.zeros(self.N**2)
         for i in range(self.N):
             for j in range(self.N):
-                L[self.n(i,j)][self.n(i,j)] = -4
-                if i != 0:
-                    L[self.n(i,j)][self.n(i-1,j)] = 1
-                if i != self.N-1:
-                    L[self.n(i,j)][self.n(i+1,j)] = 1
-                if j != 0:
-                    L[self.n(i,j)][self.n(i,j-1)] = 1
-                if j != self.N-1:
-                    L[self.n(i,j)][self.n(i,j+1)] = 1
-        return (1/self.dx)**2 * L
+                n = self.n(i, j)
+                x_1[n] = (i + 1) * self.dx
+                x_2[n] = (j + 1) * self.dx
+        return x_1, x_2
     
-    # Laplacian implemented as sparse matrix
-    # Computes self.boundary_points which maps indices n to corresponding boundary points (i, j)
-    def sparse_laplacian(self) -> lil_matrix:
+
+    def sparse_laplacian(self) -> csr_matrix:
+        '''
+        Laplacian implemented as sparse matrix
+        Computes self.boundary_points which maps indices n to corresponding boundary points 
+        '''
         def in_bounds(i, j): 
             return (0 <= i < self.N) and (0 <= j < self.N)
         
-        L = lil_matrix((self.N**2, self.N**2)) # sparse zero matrix
+        L = lil_matrix((self.N**2, self.N**2)) # list-sparse matrix
         boundary_points = defaultdict(list) # keep track of where boundary values need to land
         directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
         for i in range(self.N):
@@ -71,139 +61,159 @@ class Grid:
                     if in_bounds(i_, j_):
                         L[self.n(i, j), self.n(i_, j_)] = 1
                     else:
-                        boundary_points[self.n(i, j)].append(((i_+1)*self.N, (j_+1)*self.N))
+                        boundary_points[self.n(i, j)].append(((i_+1)*self.dx, (j_+1)*self.dx)) 
         self.boundary_points = boundary_points
-        return (1/self.dx)**2 * L
-
+        return (1/self.dx)**2 * csr_matrix(L) # convert to sparse-row matrix
     
-    # Creation of Laplacian using diagonals
-    def laplacian(self) -> np.matrix:
-        a = -4*np.ones(self.N**2, dtype=int)
-        b = np.ones(self.N**2 - 1, dtype=int)
-        c = np.ones(self.N**2 - self.N, dtype=int)
-        L = np.diag(a, 0) + np.diag(b, 1) + np.diag(b, -1) + np.diag(c, self.N) + np.diag(c, -self.N)
+    def sparse_identity(self) -> csr_matrix:
+        return identity(self.N**2, format="csr")
 
-        for i in range(1, self.N):
-            L[i*self.N][i*self.N - 1] = 0
-            L[i*self.N - 1][i*self.N] = 0
-
-        return (1/self.dx)**2 * L
-    
-    def test_speeds(self):
-        # Somehow, the "slow" laplacian is a lot faster than the "fast" laplacian?? I don't get it, but sure...
-        start_time = time()
-        self.slow_laplacian()
-        print("Slow laplacian: ", time() - start_time, "s.")
-
-        start_time = time()
-        self.laplacian()
-        print("Fast laplacian: ", time() - start_time, "s.")
-
-        start_time = time()
-        self.sparse_laplacian()
-        print("Sparse laplacian: ", time() - start_time, "s.")
 
 class TimeStepper:
-    
-    def __init__(self, N : int, M : int, final_time : int, u_init : np.ndarray, f : Callable[[np.ndarray, float], np.ndarray], g : Callable[[dict, float], np.ndarray]):
+
+    def __init__(
+            self, 
+            N : int, 
+            M : int, 
+            final_time : int, 
+            u_init : Callable[[np.ndarray, np.ndarray], np.ndarray], 
+            f : Callable[[np.ndarray, np.ndarray, float], np.ndarray], 
+            g : Callable[[np.ndarray, np.ndarray, float], np.ndarray],
+        ):
         """
+        Class for solving the heat equation.
+
         N - Grid Size
         M - Number of time steps
         final_time - Final time
-        u_init - initial condition for u
-        f - source term function, depending on x, y and t
-        g - boundary value [term/function], should be a function that returns values on the boundary for Dirichlet BC:s
+        u_init - initial condition for u, depending on x_1, x_2
+        f - source term function, depending on x_1, x_2 and t
+        g - boundary value function, depending on x_1, x_2 and t
         """
         self.N = N
         self.M = M
         self.T = final_time
-        self.u0 = u_init
+        self.u_init = u_init
         self.f = f
         self.g = g
 
         self.dx = 1 / (N+1)
-        self.dt = 1 / (M-1)
+        self.dt = self.T / (M-1) 
         self.grid = Grid(self.N)
-        self.A = np.eye(N**2) - self.dt * self.grid.sparse_laplacian()
-        self.inner_points = self.grid.generate_inner_points()
+        self.laplacian = self.grid.sparse_laplacian()
+        self.A = self.grid.sparse_identity() - self.dt * self.laplacian
+        self.x_1, self.x_2 = self.grid.generate_inner_points_components()
+        self.u0 = self.evaluate_u_init()
 
     def solve(self, u_old : np.ndarray, t : float) -> np.ndarray:
-        # REPLACE WITH OWN IMPLEMENTATION!
-        return np.linalg.solve(self.A, self.b(u_old, t))
+            x = cg.solve(self.A, self.b(u_old, t), initial_guess=u_old)
+            if x is not None:
+                return x
+            else:
+                raise RuntimeError("CG-method did not converge.")
+
         
     def b(self, u_old : np.ndarray, t : float) -> np.ndarray:
-        """Generates a right hand side for the problem, given a time t, which takes in to consideration the source term and the boundary terms"""
-        return u_old + self.dt*self.f(self.inner_points, t) + self.dt*(1/self.dx)**2 * self.g(self.grid.boundary_points, t)
+        """Generates a right hand side for the problem, given a time t, which takes into consideration the source term and the boundary terms"""
+        return u_old + self.dt * self.evaluate_f(t + self.dt) + self.dt * (1 / self.dx)**2 * self.evaluate_g(t + self.dt)
+    
+    def evaluate_u_init(self) -> np.ndarray:
+        return self.u_init(self.x_1, self.x_2)
 
-    def step(self) -> None:
-        times = np.linspace(0, self.T, num=self.M)
+    def evaluate_f(self, t) -> np.ndarray:
+        return self.f(self.x_1, self.x_2, t)
+    
+    def evaluate_g(self, t) -> np.ndarray:
+        evaluated_g = np.zeros(self.N**2)
+        for n, boundary_points in self.grid.boundary_points.items():
+            evaluated_g[n] = sum(self.g(x_1, x_2, t) for x_1, x_2 in boundary_points)
+        return evaluated_g
+
+    def step(self) -> tuple[list[float], list[np.matrix]]:
+        """ Solves the heat equation incrementally """
+        t_list = np.linspace(0, self.T, num=self.M)
         u = self.u0
-        all_u = [self.u0]
-        for t in times:
+        u_list = [self.grid.to_grid(u)]
+        for t in t_list:
             u = self.solve(u, t)
-            all_u.append(u)
-        return all_u
+            u_list.append(self.grid.to_grid(u))
+        return t_list, u_list
+
 
 class Visualizer:
+    '''
+    Animate heat flow.
 
-    def __init__(self, all_u : list[np.ndarray], interval : int):
-        self.all_u = all_u
-        self.interval = interval
-        self.u_grids = Grid.to_grid(all_u)
-    
-    def animate(self) -> None:
+    t_list - list of timesteps.
+    u_list - list of matrices corresponding to timesteps.
+    '''
+    def __init__(self, t_list: list[np.ndarray], u_list: list[np.matrix]):
+        self.t_list = t_list
+        self.u_list = u_list
+        self.T = t_list[-1]
+        self.N = len(t_list)
+        self.interval = (self.T / self.N) * 1000 # milliseconds
+
+    def animate(self, output_filename: Optional[str] = None) -> None:
+        # Set up figure and initial image
         fig, ax = plt.subplots()
-        cax = ax.imshow(self.u_grids[0], cmap='hot')
-        cbar = fig.colorbar(cax, ax=ax)
+        img = ax.imshow(self.u_list[0], cmap='viridis', vmin=np.min(u_list), vmax=np.max(self.u_list))
+        title = ax.set_title(f"t = {t_list[0]:.2f}")
+        cbar = fig.colorbar(img, ax=ax)
 
-        def update(frame : int):
-            u = self.u_grids[frame]
-            cax.set_data(u)
-            cax.set_clim(vmin=u.min(), vmax=u.max())
-            cbar.update_normal(cax)
-            return [cax]
-        
-        ani = animation.FuncAnimation(fig, update, frames=len(self.u_grids), interval=self.interval, blit=False, repeat=False)
-        plt.show()
+        # Animation function
+        def update(frame):
+            img.set_data(self.u_list[frame])
+            title.set_text(f"t = {self.t_list[frame]:.2f}")
+            return img, title
+
+        # Create animation
+        ani = animation.FuncAnimation(fig, update, frames=self.N, interval=self.interval, blit=False)
+
+        # Save/display animation
+        if output_filename is not None:
+            ani.save(output_filename, writer="pillow", fps=self.N / self.T)
+        else:
+            plt.show()
+
 
 if __name__ == '__main__':
-    N = 40
-    M = 300
-    T = 3
-    u0 = np.zeros(N**2)
+    def u_init(x_1, x_2):
+        return np.zeros(x_1.shape[0])
 
-    def f(xs : np.ndarray, t : float) -> np.ndarray:
-        def f_internal(x_ : float, y_: float, t_ : float) -> bool:
-            # return (x_ - 0.5 + 0.3*np.cos(2*np.pi*t_))**2 + (y_ - 0.5 + 0.3*np.sin(2*np.pi*t_))**2 < 0.03
-            return (x_ - 0.5)**2 + (y_ - 0.5)**2 < 0.01
-            # return 0.5
+    def f(x_1, x_2, t):
+        r = 0.3 # set to zero for time independent f 
+        return 10*((x_1 - 0.5 + r * np.cos(2*np.pi*t))**2 + (x_2 - 0.5 + r * np.sin(2 * np.pi * t))**2 < 0.1).astype(int)
 
-        out = np.zeros(len(xs))
-        for n, (x, y) in enumerate(xs):
-           if f_internal(x, y, t):
-               out[n] = 1
-        return out
+    def moving_boundary_point(t):
+        v = 0.3 # speed of point moving on boundary
+        distance = v * t 
+        circumference = 4.0
+        distance %= circumference
 
-    def g(boundary : dict[int, list], t : float) -> np.ndarray:
-        def g_internal(x_, y_, t_):
-            # return np.sin(2*np.pi*t_)
-            # print(x_, y_)
-            if t_ < T/2:
-                if x_ <= 0 or x_ > N**2: 
-                    return 0.03
-            else:
-                if y_ <= 0 or y_ > N**2:
-                    return 0.03
-            return 0
+        if distance < 1.0:
+            y_1, y_2 = distance, 0.0
+        elif 1.0 <= distance < 2.0:
+            y_1, y_2 = 1.0, distance - 1.0
+        elif 2.0 <= distance < 3.0:
+            y_1, y_2 = 1.0 - (distance - 2.0), 1.0
+        else:
+            y_1, y_2 = 0.0, 1.0 - (distance - 3.0)
 
-        out = np.zeros(N**2)
-        for n, boundary_points in boundary.items():
-            out[n] = sum([g_internal(x, y, t) for (x, y) in boundary_points])
-        return out
+        return y_1, y_2
 
-    ts = TimeStepper(N, M, T, u0, f, g)
-    all_u = ts.step()
+    def g(x_1, x_2, t):
+        y_1, y_2 = moving_boundary_point(t)
+        r = 0.1
+        return 0.5 * ((x_1 - y_1)**2 + (x_2 - y_2)**2 < r**2).astype(int)
 
-    vis = Visualizer(all_u, int(1000*T/(M-1)))
+    N = 100
+    M = 100
+    T = 10.0
+
+    ts = TimeStepper(N, M, T, u_init, f, g)
+    t_list, u_list = ts.step()
+
+    vis = Visualizer(t_list, u_list)
     vis.animate()
 

@@ -2,7 +2,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from typing import Optional
 
-def solve(A: csr_matrix, b: np.ndarray, initial_guess: Optional[np.ndarray] = None, max_iterations=10, tol=10e-5) -> np.ndarray:
+def solve(A: csr_matrix, b: np.ndarray, initial_guess: Optional[np.ndarray] = None, max_iterations=1000, tol=10e-5) -> Optional[np.ndarray]:
     '''
     Solves linear system A x = b using the CG-method and returns x (or None if method does not
     converge).
@@ -14,7 +14,7 @@ def solve(A: csr_matrix, b: np.ndarray, initial_guess: Optional[np.ndarray] = No
     tol - Method terminates if the residual error is smaller than tol. 
           If the condition is not met after max_iterations, None is returned.
     '''
-    
+
     tol = tol**2 # We will compare ||residual||**2 with tol**2
 
     # Initialize variables
@@ -40,6 +40,7 @@ def solve(A: csr_matrix, b: np.ndarray, initial_guess: Optional[np.ndarray] = No
 
         # Convergence control
         if alpha < tol:
+            print(f"CG-method converged in {_ + 1} iterations")
             return x
         
     # Method did not converge
