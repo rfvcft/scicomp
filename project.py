@@ -79,6 +79,7 @@ class TimeStepper:
             u_init : Callable[[np.ndarray, np.ndarray], np.ndarray], 
             f : Callable[[np.ndarray, np.ndarray, float], np.ndarray], 
             g : Callable[[np.ndarray, np.ndarray, float], np.ndarray],
+            preconditioned: Optional[bool]=False,
         ):
         """
         Class for solving the heat equation.
@@ -89,12 +90,13 @@ class TimeStepper:
         u_init - initial condition for u, depending on x_1, x_2
         f - source term function, depending on x_1, x_2 and t
         g - boundary value function, depending on x_1, x_2 and t
+        preconditioned - use a preconditioner in the solver
         """
         self.N = N
         self.M = M
         self.T = final_time
         self.u_init = u_init
-        self.f = f
+        self.f = f  
         self.g = g
 
         self.dx = 1 / (N+1)
@@ -104,9 +106,10 @@ class TimeStepper:
         self.A = self.grid.sparse_identity() - self.dt * self.laplacian
         self.x_1, self.x_2 = self.grid.generate_inner_points_components()
         self.u0 = self.evaluate_u_init()
+        self.solver = cg.Solver(self.A, preconditioned=preconditioned)
 
     def solve(self, u_old : np.ndarray, t : float) -> np.ndarray:
-            x = cg.solve(self.A, self.b(u_old, t), initial_guess=u_old)
+            x = self.solver.solve(self.b(u_old, t), initial_guess=u_old)
             if x is not None:
                 return x
             else:
@@ -179,7 +182,7 @@ class Visualizer:
 
 if __name__ == '__main__':
     def u_init(x_1, x_2):
-        return np.zeros(x_1.shape[0])
+        return 0 * x_1
 
     def f(x_1, x_2, t):
         r = 0.3 # set to zero for time independent f 
@@ -207,12 +210,13 @@ if __name__ == '__main__':
         r = 0.1
         return 0.5 * ((x_1 - y_1)**2 + (x_2 - y_2)**2 < r**2).astype(int)
 
-    N = 100
-    M = 100
+    N = 50
+    M = 50
     T = 10.0
 
-    ts = TimeStepper(N, M, T, u_init, f, g)
+    ts = TimeStepper(N, M, T, u_init, f, g, preconditioned=True)
     t_list, u_list = ts.step()
+
 
     vis = Visualizer(t_list, u_list)
     vis.animate()

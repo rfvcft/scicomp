@@ -1,64 +1,157 @@
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, csc_matrix, lil_matrix
+from scipy.sparse import csr_matrix, isspmatrix_csr, identity
+from scipy.sparse.linalg import spsolve_triangular, spilu
 from typing import Optional
 
-def solve(A: csr_matrix, b: np.ndarray, initial_guess: Optional[np.ndarray] = None, max_iterations=1000, tol=10e-5) -> Optional[np.ndarray]:
-    '''
-    Solves linear system A x = b using the CG-method and returns x (or None if method does not
-    converge).
+class Solver:
+    def __init__(self, A: csr_matrix, max_iterations=1000, tol=10e-5, preconditioned=False):
+        """
+        A - symmetric positive definite matrix
+        max_iterations - Maximum number of iterations
+        tol - Method terminates if the residual error is smaller than tol. 
+            If the condition is not met after max_iterations, None is returned.
+        preconditioned - set to True for preconditioned CG method.
+        """
+        self.A = A
+        self.max_iterations = max_iterations
+        self.tol = tol
+        self.preconditioned = preconditioned
 
-    A - Symmetric positive definite matrix
-    b - Right-hand side of linear system
-    initial_guess - An initial guess for the solution x. 
-    max_iterations - Maximum number of iterations
-    tol - Method terminates if the residual error is smaller than tol. 
-          If the condition is not met after max_iterations, None is returned.
-    '''
+        if preconditioned:
+            self.L = self.incomplete_cholesky() # approximates A as L L^T
+            self.L_T = self.L.transpose()    
 
-    tol = tol**2 # We will compare ||residual||**2 with tol**2
+    def incomplete_cholesky(self):
+        if not (self.A.shape[0] == self.A.shape[1]):
+            raise ValueError("Matrix must be square")
+        if not (self.A != self.A.T).nnz == 0:
+            raise ValueError("Matrix must be symmetric")
 
-    # Initialize variables
-    if initial_guess is not None:
-        x = initial_guess
-    else:
-        x = np.zeros(b.shape[0]) 
-    r = p = b - A@x # Residual and search direction
-    alpha = np.dot(r, r) # ||residual||^2
+        #A = A_csr.tocsr()
+        n = self.A.shape[0]
+        L = lil_matrix((n, n))  # row-wise efficient
 
-    # CG method
-    for _ in range(max_iterations):
-        # Compute auxilliary variables
-        v = A@p
-        _lambda = alpha / np.dot(v, p)
+        for i in range(n):
+            # Get nonzero column indices in row i
+            row_start, row_end = self.A.indptr[i], self.A.indptr[i + 1]
+            cols = self.A.indices[row_start:row_end]
 
-        # Update variables
-        x = x + _lambda * p
-        r = r - _lambda * v
-        alpha_new = np.dot(r, r)
-        p = r + (alpha_new / alpha) * p
-        alpha = alpha_new
+            for j in cols:
+                if j > i:
+                    continue  # Skip upper triangle
 
-        # Convergence control
-        if alpha < tol:
-            print(f"CG-method converged in {_ + 1} iterations")
-            return x
-        
-    # Method did not converge
-    return None
+                sum_ = 0.0
+                for k in L.rows[i]:
+                    if k < j and k in L.rows[j]:
+                        sum_ += L[i, k] * L[j, k]
+
+                if i == j:
+                    val = self.A[i, i] - sum_
+                    if val <= 0:
+                        raise np.linalg.LinAlgError("Matrix is not positive definite.")
+                    L[i, j] = np.sqrt(val)
+                else:
+                    L[i, j] = (self.A[i, j] - sum_) / L[j, j]
+
+        return L.tocsr()
+    
+    def solve(self, b: np.ndarray, initial_guess: Optional[np.ndarray] = None) -> Optional[np.ndarray]:
+        '''
+        Solves linear system A x = b using the CG-method and returns x (or None if method does not
+        converge).
+
+        b - Right-hand side of linear system
+        initial_guess - An initial guess for the solution x. 
+        '''
+        if self.preconditioned:
+            x = self.preconditioned_solve(b, initial_guess)
+        else:
+            x = self.unpreconditioned_solve(b, initial_guess)
+        return x
+    
+    def unpreconditioned_solve(self, b: np.ndarray, initial_guess: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        # Initialize variables
+        if initial_guess is not None:
+            x = initial_guess
+        else:
+            x = np.zeros(b.shape[0]) 
+        r = p = b - self.A@x # Residual and search direction
+        alpha = np.dot(r, r) # ||residual||^2
+
+        # CG method
+        for _ in range(self.max_iterations):
+            # Compute auxilliary variables
+            v = self.A@p
+            _lambda = alpha / np.dot(v, p)
+
+            # Update variables
+            x = x + _lambda * p
+            r = r - _lambda * v
+            alpha_new = np.dot(r, r)
+            p = r + (alpha_new / alpha) * p
+            alpha = alpha_new
+
+            # Convergence control
+            if alpha < self.tol**2:
+                print(f"Unpreconditioned CG-method converged in {_ + 1} iterations.")
+                return x
+            
+        # Method did not converge
+        return None
+    
+    def preconditioned_solve(self, b: np.ndarray, initial_guess: Optional[np.ndarray]) -> Optional[np.ndarray]:
+        # Initialize variables
+        if initial_guess is not None:
+            x = initial_guess
+        else:
+            x = np.zeros(b.shape[0]) 
+        r = b - self.A@x
+        r_hat = spsolve_triangular(self.L, r, lower=True) # r^{hat} = L^{-1} r
+        p = spsolve_triangular(self.L_T, r_hat, lower=False) # p = L^{-T} r
+        alpha = np.dot(r_hat, r_hat)
+
+        # CG method
+        for _ in range(self.max_iterations):
+            # Compute auxilliary variables
+            v = self.A@p
+            _lambda = alpha / np.dot(v, p)
+
+            # Update variables
+            x = x + _lambda * p
+            r = r - _lambda * v 
+            r_hat = spsolve_triangular(self.L, r, lower=True)
+            alpha_new = np.dot(r_hat, r_hat)
+            p = spsolve_triangular(self.L_T, r_hat, lower=False) + (alpha_new / alpha) * p
+            alpha = alpha_new
+
+            # Convergence control
+            if np.dot(r, r) < self.tol**2:
+                print(f"Preconditioned CG-method converged in {_ + 1} iterations.")
+                return x
+
+        # Method did not converge
+        return None
 
 
-if __name__ == '__main__':
+
+def test():
     A_dense = np.matrix([
-        [2, -1, 0],
-        [-1, 2, -1],
-        [0, -1, 2],
+        [2, 1, 0],
+        [1, 2, 0],
+        [0, 0, 2],
     ])
     A_sparse = csr_matrix(A_dense)
-    b = np.array([-2.6, 100.2, -40.2])
-    x = solve(A_sparse, b)
+    b = np.array([3, 0, 0])
 
-    print(f"A: {A_dense}")
-    print(f"b: {b}")
+
+    preconditioned_solver = Solver(A_sparse, preconditioned=True)
+    x = preconditioned_solver.solve(b)
+    
     print(f"x: {x}")
     print(f"A x: {A_sparse@x}")
+    
+
+if __name__ == '__main__':
+    test()
 
