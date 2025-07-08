@@ -108,12 +108,13 @@ class TimeStepper:
         self.u0 = self.evaluate_u_init()
         self.solver = cg.Solver(self.A, preconditioned=preconditioned)
 
-    def solve(self, u_old : np.ndarray, t : float) -> np.ndarray:
-            x = self.solver.solve(self.b(u_old, t), initial_guess=u_old)
-            if x is not None:
-                return x
-            else:
-                raise RuntimeError("CG-method did not converge.")
+    def solve(self, u_old : np.ndarray, t : float, testing=False) -> tuple[np.ndarray, int]:
+        result = self.solver.solve(self.b(u_old, t), initial_guess=u_old, testing=testing)
+        x = result[0]
+        if x is not None:
+            return result
+        else:
+            raise RuntimeError("CG-method did not converge.")
 
         
     def b(self, u_old : np.ndarray, t : float) -> np.ndarray:
@@ -138,7 +139,7 @@ class TimeStepper:
         u = self.u0
         u_list = [self.grid.to_grid(u)]
         for t in t_list:
-            u = self.solve(u, t)
+            u, _ = self.solve(u, t)
             u_list.append(self.grid.to_grid(u))
         return t_list, u_list
 
@@ -160,8 +161,8 @@ class Visualizer:
     def animate(self, output_filename: Optional[str] = None) -> None:
         # Set up figure and initial image
         fig, ax = plt.subplots()
-        img = ax.imshow(self.u_list[0], cmap='viridis', vmin=np.min(u_list), vmax=np.max(self.u_list))
-        title = ax.set_title(f"t = {t_list[0]:.2f}")
+        img = ax.imshow(self.u_list[0], cmap='viridis', vmin=np.min(self.u_list), vmax=np.max(self.u_list))
+        title = ax.set_title(f"t = {self.t_list[0]:.2f}")
         cbar = fig.colorbar(img, ax=ax)
 
         # Animation function
@@ -179,6 +180,57 @@ class Visualizer:
         else:
             plt.show()
 
+class Test:
+    def __init__(self, N : int, M : int, T : int, min_size : int, max_size : int):
+        self.N = N
+        self.M = M
+        self.T = T
+        self.min_size = min_size
+        self.max_size = max_size
+        self.step_size = 10
+
+    def test_iterations(self):
+        iterations_precond = []
+        iterations_non_precond = []
+        ns = []
+        for n in range(self.min_size, self.max_size, self.step_size):
+            ts_precond = TimeStepper(n, self.M, self.T, u_init, f, g, preconditioned=True)
+            _, i = ts_precond.solve(ts_precond.u0, t=0.0)
+            iterations_precond.append(i)
+            ts_non_precond = TimeStepper(n, self.M, self.T, u_init, f, g, preconditioned=False)
+            _, j = ts_non_precond.solve(ts_non_precond.u0, t=0.0)
+            iterations_non_precond.append(j)
+            ns.append(n)
+        
+        #TODO: Does this match up with what theory predicts??
+        fig, ax = plt.subplots()
+        ax.scatter(ns, iterations_precond, label="Preconditioned")
+        ax.scatter(ns, iterations_non_precond, label="Non-preconditioned")
+        ax.set_xlabel("n")
+        ax.set_ylabel("Iterations")
+        ax.set_title("Iterations vs size of matrix, with and without precond")
+        ax.legend()
+        
+        plt.show()
+
+
+    def test_residual(self):
+        ts_precond = TimeStepper(self.N, self.M, self.T, u_init, f, g, preconditioned=True)
+        _, i, precond_res = ts_precond.solve(ts_precond.u0, t=0.0, testing=True)
+        ts_non_precond = TimeStepper(self.N, self.M, self.T, u_init, f, g, preconditioned=False)
+        _, j, non_precond_res = ts_non_precond.solve(ts_precond.u0, t=0.0, testing=True)
+
+        #TODO: Does this match up with what theory predicts??
+        fig, ax = plt.subplots()
+        ax.scatter(list(range(i+2)), precond_res, label="Preconditioned")
+        ax.scatter(list(range(j+2)), non_precond_res, label="Non-preconditioned")
+        ax.set_xlabel("Iteration")
+        ax.set_ylabel("Residual")
+        ax.set_title("Residual vs iterations, with and without precond")
+        ax.legend()
+        ax.semilogy()
+        plt.show()
+
 
 if __name__ == '__main__':
     def u_init(x_1, x_2):
@@ -186,7 +238,7 @@ if __name__ == '__main__':
 
     def f(x_1, x_2, t):
         r = 0.3 # set to zero for time independent f 
-        return 10*((x_1 - 0.5 + r * np.cos(2*np.pi*t))**2 + (x_2 - 0.5 + r * np.sin(2 * np.pi * t))**2 < 0.1).astype(int)
+        return 10 * ((x_1 - 0.5 + r * np.cos(2*np.pi*t))**2 + (x_2 - 0.5 + r * np.sin(2 * np.pi * t))**2 < 0.1).astype(int)
 
     def moving_boundary_point(t):
         v = 0.3 # speed of point moving on boundary
@@ -208,16 +260,20 @@ if __name__ == '__main__':
     def g(x_1, x_2, t):
         y_1, y_2 = moving_boundary_point(t)
         r = 0.1
-        return 0.5 * ((x_1 - y_1)**2 + (x_2 - y_2)**2 < r**2).astype(int)
+        return 0.5 * int((x_1 - y_1)**2 + (x_2 - y_2)**2 < r**2)
 
-    N = 50
+    N = 150
     M = 50
     T = 10.0
 
-    ts = TimeStepper(N, M, T, u_init, f, g, preconditioned=True)
-    t_list, u_list = ts.step()
+    test = Test(N, M, T, 4, 124)
+    test.test_iterations()
+    test.test_residual()
+
+    # ts = TimeStepper(N, M, T, u_init, f, g, preconditioned=False)
+    # t_list, u_list = ts.step()
 
 
-    vis = Visualizer(t_list, u_list)
-    vis.animate()
+    # vis = Visualizer(t_list, u_list)
+    # vis.animate()
 
