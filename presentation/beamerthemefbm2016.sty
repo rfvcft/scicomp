@@ -1,0 +1,483 @@
+%----------------------------------------------------------------------------------------
+% Corporate Design 2016 Presentation
+%----------------------------------------------------------------------------------------
+% Last update 22.11.2017
+%
+% Changelog:
+%   22.11.2017: changed style of numbered slides
+%   21.11.2017: added \toogleFooter to hide/show footer on teh following slides
+%   30.06.2017: added \enum{#number} to link to an enuemrate item
+%   20.04.2017: added numbered option too show slide number at bottom-right, also an example for usage in individual footers, i.e. with \setFooter
+%   30.11.2016: improved documentation of titlepage picture and some minor changes
+%   28.11.2016: fix for [t] alignment to \frame
+%   23.11.2016: FKR release version
+%   21.11.2016: improvements for adaptability to institute-level
+%   18.11.2016: initial version
+%
+% For questions or bug reports
+% mailto: mirco.altenbernd@ians.uni-stuttgart.de
+%
+%----------------------------------------------------------------------------------------
+
+\mode<presentation>
+
+\NeedsTeXFormat {LaTeX2e}%
+\ProvidesPackage{beamerthemefbm2016}
+
+%----------------------------------------------------------------------------------------
+%||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+%----------------------------------------------------------------------------------------
+% OPTIONS
+%----------------------------------------------------------------------------------------
+
+% simtech logo in footer
+\newif\if@simtech
+\@simtechfalse
+
+% use german
+\newif\if@german
+\@germanfalse
+
+% show slide numbers
+\newif\if@numbered
+\@numberedfalse
+
+%% Beamer pass-through options
+\DeclareOptionBeamer{compress}{\beamer@compresstrue}
+\ProcessOptionsBeamer\relax
+
+%% Theme options
+\DeclareOption{german}{\@germantrue}
+\DeclareOption{simtech}{\@simtechtrue}
+\DeclareOption{numbered}{\@numberedtrue}
+\ProcessOptions\relax
+
+%----------------------------------------------------------------------------------------
+% other booleans
+%----------------------------------------------------------------------------------------
+
+% user has defined a footer
+\newif\if@userfooter
+\@userfooterfalse
+
+% footer boolean : if false footer will be hidden. toggles with \toggleFooter
+\newif\if@footer
+\@footertrue
+
+% the user has defined a subtext for the logo
+\newif\if@subtext
+\@subtextfalse
+
+%----------------------------------------------------------------------------------------
+%   commands for formating
+%----------------------------------------------------------------------------------------
+
+\newcommand{\unilogo}[1]{\includegraphics[width=#1]{logo_uni}}
+\newcommand{\instlogo}[1]{\includegraphics[width=#1]{logo_institute}}
+\newcommand{\simtechlogo}[1]{\includegraphics[width=#1]{logo_simtech}}
+\newcommand\insertFooter{}
+\newcommand\insertTitlePic{\includegraphics[height=6cm]{titlepic}}
+\newcommand\insertLogoText{}
+
+\if@german
+  \usepackage[ngerman]{datetime,babel}
+  \newdateformat{myformat}{\THEDAY{ten }\monthnamengerman[\THEMONTH], \THEYEAR}
+\else
+  \usepackage[british]{babel}
+  \renewcommand{\unilogo}[1]{\includegraphics[width=#1]{logo_uni_english}}
+\fi
+
+%----------------------------------------------------------------------------------------
+%   User formating commands
+%----------------------------------------------------------------------------------------
+
+% highlight test in blue
+\newcommand{\highlight}[1]{\textcolor{CD02}{#1}}
+% link an enumerate item with number
+\newcommand{\enum}[1]{\usebeamercolor[bg]{item projected}\tikz[baseline=-0.65ex]\draw[CD01,fill=CD01] (0,0) circle (.75ex) node {\color{white}\scriptsize\bf#1};}
+
+%----------------------------------------------------------------------------------------
+%   User input commands
+%----------------------------------------------------------------------------------------
+
+\newcommand\setFooter[1]{\renewcommand\insertFooter{#1}\@userfootertrue}
+\newcommand\setTitlePic[1]{\renewcommand\insertTitlePic{\includegraphics[height=6cm]{#1}}}
+\newcommand\defTitlePic[1]{\renewcommand\insertTitlePic{#1}}
+\newcommand\setLogoText[1]{\renewcommand\insertLogoText{\color{CD01}\fontsize{8.5}{8} \selectfont #1}\@subtexttrue}
+% toggle the footer for the following slides: default is true
+\newcommand\toggleFooter{\if@footer \@footerfalse \else \@footertrue \fi}
+
+%----------------------------------------------------------------------------------------
+%||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+%----------------------------------------------------------------------------------------
+% IMPORT
+%----------------------------------------------------------------------------------------
+%   Graphic
+%----------------------------------------------------------------------------------------
+
+\RequirePackage{tikz}
+\RequirePackage{xcolor}
+\RequirePackage{graphicx}
+\RequirePackage{epstopdf}
+
+%----------------------------------------------------------------------------------------
+%   Text
+%----------------------------------------------------------------------------------------
+
+\RequirePackage[T1]{fontenc}
+\RequirePackage[utf8]{inputenc}
+\RequirePackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+%----------------------------------------------------------------------------------------
+%||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+%----------------------------------------------------------------------------------------
+% SETTINGS
+%----------------------------------------------------------------------------------------
+%   Colors and Text
+%----------------------------------------------------------------------------------------
+
+\definecolor{CD00}{RGB}{255,255,255} %white
+\definecolor{CD01}{RGB}{ 62, 68, 76} %anthrazit
+\definecolor{CD02}{RGB}{  0, 81,158} %mid-blue
+\definecolor{CD03}{RGB}{  0,190,255} %light-blue
+\definecolor{CD04}{RGB}{100,100,100} %light-grey
+
+%----------------------------------------------------------------------------------------
+%||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+%----------------------------------------------------------------------------------------
+% FORMAT
+%----------------------------------------------------------------------------------------
+%----------------------------------------------------------------------------------------
+%   Beamer options
+%----------------------------------------------------------------------------------------
+
+% diasble navigation symbols
+\setbeamertemplate{navigation symbols}{}
+
+% text color
+\setbeamercolor{normal text}{fg=CD01}
+
+% table of content color
+\setbeamercolor{section in toc}{fg=CD02}
+\setbeamercolor{section in toc shaded}{fg=CD02}
+\setbeamercolor{subsection in toc}{fg=CD01}
+\setbeamercolor{subsection in toc shaded}{fg=CD01}
+
+% bibiliography style
+\setbeamertemplate{bibliography item}[text]{}
+\setbeamercolor{bibliography item}{fg=CD01}
+\setbeamercolor{bibliography entry author}{fg=CD02}
+\setbeamercolor{bibliography entry title}{fg=CD01}
+\setbeamercolor{bibliography entry location}{fg=CD04}
+\setbeamercolor{bibliography entry note}{fg=CD04}
+
+\bibliographystyle{plain}
+
+% caption color and style
+\setbeamerfont{caption name}{series=\normalsize\bfseries}
+\setbeamercolor{caption name}{fg=CD01}
+\setbeamerfont{caption}{series=\normalsize}
+\setbeamercolor{caption}{fg=CD01}
+\setbeamercolor{local structure}{fg=CD01}
+
+% default block style
+\setbeamertemplate{blocks}[rounded][shadow=false]
+\setbeamercolor*{block title alerted}{fg=CD00,bg=CD01}
+\setbeamercolor*{block body alerted}{fg=CD01,bg=CD03!40}
+\setbeamercolor*{block title}{fg=CD00,bg=CD01}
+\setbeamercolor*{block body}{fg=CD01,bg=CD01!10}
+
+% default description-item text color
+\setbeamercolor*{description item}{fg=CD02}
+
+% Itemize and enumerate
+\setbeamertemplate{itemize items} {\usebeamercolor[bg]{item projected}\tikz[baseline=-0.65ex]\draw[CD01,fill=CD01] (0,0) circle (.45ex) node {\color{CD01}.};}
+\setbeamertemplate{enumerate items} {\usebeamercolor[bg]{item projected}\tikz[baseline=-0.65ex]\draw[CD01,fill=CD01] (0,0) circle (.75ex) node {\color{CD00}\scriptsize\bf\insertenumlabel};}
+
+\setbeamertemplate{itemize/enumerate body begin}{\color{CD01}}
+\setbeamertemplate{itemize/enumerate subbody begin}{\color{CD01}}
+\setbeamertemplate{itemize/enumerate subsubbody begin}{\color{CD01}}
+
+%----------------------------------------------------------------------------------------
+%   Title Page
+%----------------------------------------------------------------------------------------
+
+\newcommand{\LogoTextX}{0.87}
+%modifications for german version
+\if@german
+  \renewcommand{\LogoTextX}{0.94}
+\fi
+
+\defbeamertemplate*{title page}{fbm2016}[1][]
+{
+\begin{tikzpicture}[remember picture,overlay]
+  \node[anchor=north west, align=left] at (-0.3,3.55) {\unilogo{5cm}};
+  \if@subtext
+  \node[anchor=north west, align=left,fill=white] at (1.05,2.65){\makebox[6cm]{\raisebox{0pt}[0.5cm][0pt]{}}};
+  \node[anchor=north west, align=left] at (\LogoTextX,2.71){\insertLogoText};
+  \fi
+  \node[anchor=center, align=center] at (4.1,-1.6) {\insertTitlePic};
+  \node[anchor=east,minimum size=8.5cm,circle, fill=CD01] at (16.1,-0.8) {\parbox{6cm}{\flushleft \Large\color{CD00} {\bf\inserttitle}\\ \vspace{5pt}\large \color{CD00} \insertsubtitle\\ \vspace{5pt} \insertdate} };
+  \node[anchor=east, minimum size=2.5cm, circle, fill=CD03] at (8.5,-2.1) {\parbox{2cm}{\vspace*{-12pt}\center \color{CD00}\small\insertauthor}};
+\end{tikzpicture}
+}
+
+%----------------------------------------------------------------------------------------
+%   Frame Style
+%----------------------------------------------------------------------------------------
+
+\def\image#1{\def\@image{#1}}
+
+\newcommand{\titlesize}[1]{\def \titlesizept {#1pt}}
+\newcommand{\subtitlesize}[1]{\def \subtitlesizept {#1pt}}
+\titlesize{15}
+\subtitlesize{12}
+% Frame title
+\setbeamertemplate{frametitle}
+{
+  \vspace{0.4cm}
+    \fontsize{\titlesizept}{0pt}\selectfont%
+    \bfseries\textcolor{CD01}{\insertframetitle}\\
+    \normalfont\fontsize{\subtitlesizept}{0pt}\selectfont%
+    \textcolor{CD01}{\insertframesubtitle}
+    \vspace*{-0.6cm}
+}
+
+%----------------------------------------------------------------------------------------
+%   Footline
+%----------------------------------------------------------------------------------------
+
+\setbeamertemplate{footline}{
+  \if@footer
+    \if@userfooter
+      \insertFooter
+    \else
+      \vspace*{1cm} % for alignment issues: otherwise the content does not recognize the footer
+      \begin{tikzpicture}[remember picture,overlay]
+       \ifnum\thepage>1\draw (0.5,1) node(a) {} (15.5,1) node(b) {}; \draw[CD01!40] (a.east) -- (b.west);\fi
+        %left aligned footer-content (image)
+        \node[anchor=south west, align=left, yshift=0.01\paperwidth, xshift=0.036\paperwidth] at (current page.south west) {
+          \includegraphics[height=0.05\paperheight]{logo_institute.pdf}
+        };
+        %center aligned footer-content (image)
+        \node[anchor=south, align=center, yshift=0.01\paperwidth, xshift=0] at (current page.south) {
+          \if@simtech
+            \includegraphics[height=0.05\paperheight]{logo_simtech.pdf}
+          \fi
+        };
+        %center aligned footer-content (text) - yshift may be modified for alignment
+        \node[anchor=south, align=center, yshift=0.025\paperwidth, xshift=0] at (current page.south) {
+          % {\bfseries\large www.sfbtrr75.de}\\
+          % {\bfseries\large www.simtech.uni-stuttgart.de}
+        };
+        %right aligned footer-content (image)
+        \node[anchor=south east, align=right, yshift=0.01\paperwidth, xshift=-0.036\paperwidth] at (current page.south east) {
+          %uni logo in footer only after title page
+          \ifnum\thepage>1
+            \if@german
+              \includegraphics[height=0.06\paperheight]{logo_uni.pdf}
+            \else
+              \includegraphics[height=0.06\paperheight]{logo_uni_english.pdf}
+            \fi
+          \fi
+        };
+        \if@numbered\ifnum\thepage>1\node[anchor=center, minimum size=2.cm] at (16.1,-0.3) {};
+          \node[anchor=center] at (15.7,1) {\parbox[t][][t]{3cm}{\hspace*{-0cm}\centering\color{CD01}\scriptsize \insertframenumber}};
+          %\node[anchor=center] at (15.65,1) {\parbox[t][][t]{3cm}{\hspace*{-0cm}\centering\color{CD01}\tiny \insertframenumber/\inserttotalframenumber}};
+        \fi\fi
+      \end{tikzpicture}
+    \fi
+  \else
+    % no footer displayed
+  \fi
+}
+
+%----------------------------------------------------------------------------------------
+%   macros
+%----------------------------------------------------------------------------------------
+
+% Dominik's favourite tikz hack
+\tikzset{
+  every overlay node/.style={
+    fill=CD00,rounded corners,anchor=north west,
+  },
+}
+% Usage:
+% \tikzoverlay at (-1cm,-5cm) {content};
+% or
+% \tikzoverlay[text width=5cm] at (-1cm,-5cm) {content};
+\def\tikzoverlay{%
+   \tikz[baseline,overlay]\node[every overlay node]
+}%
+
+%----------------------------------------------------------------------------------------
+%||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+%----------------------------------------------------------------------------------------
+%   New environments
+%----------------------------------------------------------------------------------------
+
+%----------------------------------------------------------------------------------------
+%   Dualframe - frame with two columns. usage:
+%
+%   \begin{dualframe}[ratio]
+%     left content
+%   }{
+%     right content
+%   \end{dualframe}
+%
+%   optional command 'ratio' defines the ratio between both columns. default is 0.5
+%----------------------------------------------------------------------------------------
+
+% some length-hacks to create relative sized columns, reduced width for space between columns
+\newlength{\basewidth}
+\setlength{\basewidth}{\dimexpr(\textwidth-0.7cm)\relax}
+\newlength{\lengthA}
+\newlength{\lengthB}
+\newcommand{\dualframe}[4][0.5]{
+  \setlength{\lengthA}{#1\basewidth}
+  \setlength{\lengthB}{\dimexpr(\basewidth-\lengthA)\relax}
+  \begin{frame}{#2}
+      \begin{minipage}[t]{\lengthA}\vspace{-5ex}
+        #3
+      \end{minipage}\hfill%
+      \begin{minipage}[t]{\lengthB}\vspace{-5ex}
+        #4
+      \end{minipage}
+  \end{frame}
+}
+
+%----------------------------------------------------------------------------------------
+%   Proposition
+%----------------------------------------------------------------------------------------
+
+\newenvironment<>{proposition}[1][\undefined]{%
+\begin{actionenv}#2%
+\ifx#1\undefined%
+   \def\insertblocktitle{\normalsize Proposition}%
+\else%
+   \def\insertblocktitle{\normalsize Proposition ({\em#1})}%
+\fi%
+\par%
+\mode<presentation>{%
+ \setbeamercolor{block title}{use=structure,fg=CD00,bg=CD01}
+\setbeamercolor{block body}{use=structure,fg=CD01,bg=CD01!10}
+}%
+\usebeamertemplate{block begin}\em}
+{\par\usebeamertemplate{block end}\end{actionenv}}
+
+%----------------------------------------------------------------------------------------
+%   Theorem
+%----------------------------------------------------------------------------------------
+
+\newenvironment<>{theorem}[1][\undefined]{%
+\begin{actionenv}#2%
+\ifx#1\undefined%
+   \def\insertblocktitle{\normalsize Theorem}%
+\else%
+   \def\insertblocktitle{\normalsize Theorem ({\em#1})}%
+\fi%
+\par%
+\mode<presentation>{%
+ \setbeamercolor{block title}{use=structure,fg=CD00,bg=CD01}
+\setbeamercolor{block body}{use=structure,fg=CD01,bg=CD01!10}
+}%
+\usebeamertemplate{block begin}\em}
+{\par\usebeamertemplate{block end}\end{actionenv}}
+
+%----------------------------------------------------------------------------------------
+%   Corollary
+%----------------------------------------------------------------------------------------
+
+\newenvironment<>{corollary}[1][\undefined]{%
+\begin{actionenv}#2%
+\ifx#1\undefined%
+   \def\insertblocktitle{\normalsize Corollary}%
+\else%
+   \def\insertblocktitle{\normalsize Corollary ({\em#1})}%
+\fi%
+\par%
+\mode<presentation>{%
+ \setbeamercolor{block title}{use=structure,fg=CD00,bg=CD01}
+\setbeamercolor{block body}{use=structure,fg=CD01,bg=CD01!10}
+}%
+\usebeamertemplate{block begin}\em}
+{\par\usebeamertemplate{block end}\end{actionenv}}
+
+%----------------------------------------------------------------------------------------
+%   Lemma
+%----------------------------------------------------------------------------------------
+
+\newenvironment<>{lemma}[1][\undefined]{%
+\begin{actionenv}#2%
+\ifx#1\undefined%
+   \def\insertblocktitle{\normalsize Lemma}%
+\else%
+   \def\insertblocktitle{\normalsize Lemma ({\em#1})}%
+\fi%
+\par%
+\mode<presentation>{%
+ \setbeamercolor{block title}{use=structure,fg=CD00,bg=CD01}
+\setbeamercolor{block body}{use=structure,fg=CD01,bg=CD01!10}
+}%
+\usebeamertemplate{block begin}\em}
+{\par\usebeamertemplate{block end}\end{actionenv}}
+
+%----------------------------------------------------------------------------------------
+%   Definition
+%----------------------------------------------------------------------------------------
+
+\newenvironment<>{definition}[1][\undefined]{%
+\begin{actionenv}#2%
+\ifx#1\undefined%
+   \def\insertblocktitle{\normalsize Definition}%
+\else%
+   \def\insertblocktitle{\normalsize Definition ({\em#1})}%
+\fi%
+\par%
+\mode<presentation>{%
+ \setbeamercolor{block title}{use=structure,fg=CD00,bg=CD01}
+\setbeamercolor{block body}{use=structure,fg=CD01,bg=CD01!10}
+}%
+\usebeamertemplate{block begin}\em}
+{\par\usebeamertemplate{block end}\end{actionenv}}
+
+%----------------------------------------------------------------------------------------
+%   Remark
+%----------------------------------------------------------------------------------------
+
+\newenvironment<>{remark}[1][\undefined]{%
+\begin{actionenv}#2%
+\ifx#1\undefined%
+   \def\insertblocktitle{\normalsize Remark}%
+\else%
+   \def\insertblocktitle{\normalsize Remark ({\em#1})}%
+\fi%
+\par%
+\mode<presentation>{%
+ \setbeamercolor{block title}{use=structure,fg=CD00,bg=CD01}
+\setbeamercolor{block body}{use=structure,fg=CD01,bg=CD01!10}
+}%
+\usebeamertemplate{block begin}\em}
+{\par\usebeamertemplate{block end}\end{actionenv}}
+
+%----------------------------------------------------------------------------------------
+%   Example
+%----------------------------------------------------------------------------------------
+
+\newenvironment<>{example}[1][\undefined]{%
+\begin{actionenv}#2%
+\ifx#1\undefined%
+   \def\insertblocktitle{\normalsize Example}%
+\else%
+   \def\insertblocktitle{\normalsize Example ({\em#1})}%
+\fi%
+\par%
+\mode<presentation>{%
+ \setbeamercolor{block title}{use=structure,fg=CD00,bg=CD01}
+\setbeamercolor{block body}{use=structure,fg=CD01,bg=CD01!10}
+}%
+\usebeamertemplate{block begin}\em}
+{\par\usebeamertemplate{block end}\end{actionenv}}
+
+\mode<all>

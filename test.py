@@ -53,8 +53,8 @@ class Test:
 
         #TODO: Does this match up with what theory predicts??
         fig, ax = plt.subplots()
-        ax.scatter(list(range(i+1)), precond_res[1:], label="Preconditioned")
-        ax.scatter(list(range(j+1)), non_precond_res[1:], label="Non-preconditioned")
+        ax.plot(list(range(i+1)), precond_res[1:], label="Preconditioned")
+        ax.plot(list(range(j+1)), non_precond_res[1:], label="Non-preconditioned")
         ax.set_xlabel("Iteration")
         ax.set_ylabel("Residual")
         ax.set_title(f"Residual vs iterations, with and without precond (n={self.N})")
@@ -134,5 +134,5 @@ if __name__ == '__main__':
     t = Test(N, M, T, min_size, max_size, step_size)
     # t.test_iterations("iterations_test.png")
     # t.test_condition_number("conditioning_test.png")
-    # t.test_residual("residual_test.png")
-    t.test_time("time_test.png")
+    t.test_residual("residual_test.png")
+    # t.test_time("time_test.png")
