@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.sparse import csr_matrix, csc_matrix, lil_matrix
 from scipy.sparse import csr_matrix, isspmatrix_csr, identity
-from scipy.sparse.linalg import spsolve_triangular, spilu
+from scipy.sparse.linalg import spsolve_triangular, spilu, spsolve
 from typing import Optional
 
 from line_profiler import profile
@@ -105,10 +105,10 @@ class Solver:
 
             # Convergence control
             if alpha < self.tol**2:
-                print(f"Unpreconditioned CG-method converged in {i + 1} iterations.")
                 if testing:
                     return x, i, residuals
                 else:
+                    print(f"Unpreconditioned CG-method converged in {i + 1} iterations.")
                     return x, i
             
         # Method did not converge
@@ -139,8 +139,10 @@ class Solver:
             x = x + _lambda * p
             r = r - _lambda * v 
             r_hat = spsolve_triangular(self.L, r, lower=True)
+            # r_hat = spsolve(self.L, r)
             alpha_new = np.dot(r_hat, r_hat)
             p = spsolve_triangular(self.L_T, r_hat, lower=False) + (alpha_new / alpha) * p
+            # p = spsolve(self.L_T, r_hat) + (alpha_new / alpha) * p
             alpha = alpha_new
 
             if testing:
@@ -148,10 +150,10 @@ class Solver:
 
             # Convergence control
             if np.dot(r, r) < self.tol**2:
-                print(f"Preconditioned CG-method converged in {i + 1} iterations.")
                 if testing:
                     return x, i, residuals
                 else: 
+                    print(f"Preconditioned CG-method converged in {i + 1} iterations.")
                     return x, i
 
         # Method did not converge

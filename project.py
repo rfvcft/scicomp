@@ -180,57 +180,6 @@ class Visualizer:
         else:
             plt.show()
 
-class Test:
-    def __init__(self, N : int, M : int, T : int, min_size : int, max_size : int):
-        self.N = N
-        self.M = M
-        self.T = T
-        self.min_size = min_size
-        self.max_size = max_size
-        self.step_size = 10
-
-    def test_iterations(self):
-        iterations_precond = []
-        iterations_non_precond = []
-        ns = []
-        for n in range(self.min_size, self.max_size, self.step_size):
-            ts_precond = TimeStepper(n, self.M, self.T, u_init, f, g, preconditioned=True)
-            _, i = ts_precond.solve(ts_precond.u0, t=0.0)
-            iterations_precond.append(i)
-            ts_non_precond = TimeStepper(n, self.M, self.T, u_init, f, g, preconditioned=False)
-            _, j = ts_non_precond.solve(ts_non_precond.u0, t=0.0)
-            iterations_non_precond.append(j)
-            ns.append(n)
-        
-        #TODO: Does this match up with what theory predicts??
-        fig, ax = plt.subplots()
-        ax.scatter(ns, iterations_precond, label="Preconditioned")
-        ax.scatter(ns, iterations_non_precond, label="Non-preconditioned")
-        ax.set_xlabel("n")
-        ax.set_ylabel("Iterations")
-        ax.set_title("Iterations vs size of matrix, with and without precond")
-        ax.legend()
-        
-        plt.show()
-
-
-    def test_residual(self):
-        ts_precond = TimeStepper(self.N, self.M, self.T, u_init, f, g, preconditioned=True)
-        _, i, precond_res = ts_precond.solve(ts_precond.u0, t=0.0, testing=True)
-        ts_non_precond = TimeStepper(self.N, self.M, self.T, u_init, f, g, preconditioned=False)
-        _, j, non_precond_res = ts_non_precond.solve(ts_precond.u0, t=0.0, testing=True)
-
-        #TODO: Does this match up with what theory predicts??
-        fig, ax = plt.subplots()
-        ax.scatter(list(range(i+2)), precond_res, label="Preconditioned")
-        ax.scatter(list(range(j+2)), non_precond_res, label="Non-preconditioned")
-        ax.set_xlabel("Iteration")
-        ax.set_ylabel("Residual")
-        ax.set_title("Residual vs iterations, with and without precond")
-        ax.legend()
-        ax.semilogy()
-        plt.show()
-
 
 if __name__ == '__main__':
     def u_init(x_1, x_2):
@@ -262,18 +211,17 @@ if __name__ == '__main__':
         r = 0.1
         return 0.5 * int((x_1 - y_1)**2 + (x_2 - y_2)**2 < r**2)
 
-    N = 150
-    M = 50
+    N = 80
+    M = 150
     T = 10.0
 
-    test = Test(N, M, T, 4, 124)
-    test.test_iterations()
-    test.test_residual()
+    # test = Test(N, M, T, 4, 124)
+    # test.test_iterations()
+    # test.test_residual()
 
-    # ts = TimeStepper(N, M, T, u_init, f, g, preconditioned=False)
-    # t_list, u_list = ts.step()
+    ts = TimeStepper(N, M, T, u_init, f, g, preconditioned=True)
+    t_list, u_list = ts.step()
 
-
-    # vis = Visualizer(t_list, u_list)
-    # vis.animate()
+    vis = Visualizer(t_list, u_list)
+    vis.animate()
 
