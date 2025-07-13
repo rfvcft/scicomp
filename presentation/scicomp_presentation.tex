@@ -39,6 +39,7 @@
 \usepackage{cite}
 \usepackage{xcolor} % Für Farbe
 \usepackage{empheq} % Für Boxen
+\usepackage{verbatim}
 
 
 
@@ -159,22 +160,166 @@
 
 
 
+\begin{frame}{Introduction} 
+	We solve the \textbf{time dependent heat equation}
+	\begin{align*}
+	\begin{cases}
+		\partial_t u - \Delta u = f,& \quad \text{in} \: \, \hspace{2mm} (0,1)^2,\\ 
+		\hspace{13mm} u = g,& \quad \text{on} \: \, \partial (0,1)^2. 
+	\end{cases}
+	\end{align*}
+	with a source $f$ and boundary condition $g$. 
+	
+\end{frame}
+
+\begin{frame}{Discretization}
+We use finite differences for the Laplacian
+	\begin{align*}
+		(\Delta u)(x) \approx  \big( u(x_1 - \delta x, x_2)& + u(x_1 + \delta x, x_2) + \\ 
+			&u(x_1, x_2 - \delta x) + u(x_1, x_2 + \delta x) - 4 u(x_1, x_2) \big) / \delta x^2
+	\end{align*}
+and the time derivative 
+	\begin{align*}  
+		\frac{u(x, t + \delta t) - u(x, t)}{\delta t} - (\Delta u)(x, t + \delta t) \approx f(x, t + \delta t) \\ 
+		\iff u(x, t + \delta t) - \delta t (\Delta u)(x, t + \delta t) \approx \delta t \,  f(x, t + \delta t) + u(x, t)
+	\end{align*} 
+
+
+\end{frame}
 
 
 
 
 
+%---------------------------------------------------------Discretized grid --------------------------------------------
+\begin{frame}
 
-\begin{frame}{Background/problem/mathematics/preconditioner etc...}
-\end{frame} 
+\begin{minipage}{0.5 \textwidth}
+\begin{tikzpicture}
+
+% Number of grid divisions
+\def\n{5}
+
+% Draw grid
+\foreach \i in {0,...,\n} {
+    \draw[gray!50] (\i,0) -- (\i,\n);
+    \draw[gray!50] (0,\i) -- (\n,\i);
+}
+
+% Plot points and color them
+\foreach \i in {0,...,\n} {
+    \foreach \j in {0,...,\n} {
+        % Check if boundary point
+        \ifnum\i=0
+            \fill[red] (\i,\j) circle (2pt);
+        \else\ifnum\i=\n
+            \fill[red] (\i,\j) circle (2pt);
+        \else\ifnum\j=0
+            \fill[red] (\i,\j) circle (2pt);
+        \else\ifnum\j=\n
+            \fill[red] (\i,\j) circle (2pt);
+        \else
+            \fill[green] (\i,\j) circle (2pt);
+        \fi\fi\fi\fi
+    }
+}
+
+% Central point (interior)
+\def\cx{4}
+\def\cy{4}
+
+% Highlight center point
+%\fill[blue] (\cx,\cy) circle (3pt) node[below left=2pt] {$u_{i,j}$};
+
+% Highlight stencil neighbors (4-neighbor Laplacian)
+\fill[orange] (\cx+1,\cy) circle (3pt) node[right=2pt] {$u_{i+1,j}$};
+\fill[orange] (\cx-1,\cy) circle (3pt) node[left=2pt] {$u_{i-1,j}$};
+\fill[orange] (\cx,\cy+1) circle (3pt) node[above=2pt] {$u_{i,j+1}$};
+\fill[orange] (\cx,\cy-1) circle (3pt) node[below=2pt] {$u_{i,j-1}$};
+
+% Optional: arrows to center
+\foreach \dx/\dy in {1/0, -1/0, 0/1, 0/-1} {
+    \draw[->, thick, red] ({\cx+\dx},{\cy+\dy}) -- (\cx,\cy);
+}
+
+% Optional: axes or labels
+%\draw[->] (0,0) -- (\n+1,0) node[right] {$x$};
+%\draw[->] (0,0) -- (0,\n+1) node[above] {$y$};
+
+\end{tikzpicture}
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.45 \textwidth}
+Let $u_{i j}^{(\ell)} = u(x_{i j}, t_\ell)$, $0 \leq i, j < N$. Then
+\begin{align*}  
+	u_{i j}^{(\ell + 1)} - \frac{\delta t}{\delta x^2} (L u)_{i j}^{(\ell + 1)} = \delta t \, f_{i j}^{(\ell + 1)} + u_{i j}^{(\ell)} 
+\end{align*} 
+where $$(L u)_{i j} = u_{i - 1, j} + u_{i + 1, j} + u_{i, j - 1} + u_{i, j + 1} - 4 u_{i j}$$
+and $u_{i j}^{(\ell)} = g_{i j}^{(\ell)}$ in boundary points. 
+\end{minipage}
+\end{frame}
 
 
+
+
+\begin{frame}[fragile]{Implementation details}
+\footnotesize
+\begin{verbatim}
+def sparse_laplacian(self) -> csr_matrix:
+    def in_bounds(i, j): 
+        return (0 <= i < self.N) and (0 <= j < self.N)
+    
+    L = lil_matrix((self.N**2, self.N**2)) 
+    boundary_points = defaultdict(list) 
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+    for i in range(self.N):
+        for j in range(self.N):
+            L[self.n(i, j), self.n(i, j)] = -4 
+            for dx, dy in directions:
+                i_, j_ = i + dx, j + dy
+                if in_bounds(i_, j_):
+                    L[self.n(i, j), self.n(i_, j_)] = 1
+                else:
+                    boundary_points[self.n(i, j)].append(((i_+1)*self.dx, (j_+1)*self.dx)) 
+    self.boundary_points = boundary_points
+    return (1/self.dx)**2 * csr_matrix(L) 
+\end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]{CG Method}
+\footnotesize
+\begin{verbatim}
+    def unpreconditioned_solve(self, b: np.ndarray, initial_guess: np.ndarray):
+    				x = initial_guess
+        r = p = b - self.A@x 
+        alpha = np.dot(r, r) 
+
+        for _ in range(self.max_iterations):
+            v = self.A@p 
+            _lambda = alpha / np.dot(v, p)
+            x = x + _lambda * p
+            r = r - _lambda * v
+            alpha_new = np.dot(r, r)
+            p = r + (alpha_new / alpha) * p
+            alpha = alpha_new
+
+            if alpha < self.tol**2:
+                return x
+            
+        return None
+\end{verbatim}
+\end{frame}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%RESULTS%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{frame}{Results (conditioning number)}
 	\begin{figure}
 		\includegraphics[width=0.8\textwidth]{../images/conditioning_test.png}
 	\end{figure}
 
 \end{frame} 
+
+
 
 
 \begin{frame}{Results (iterations)}
@@ -201,61 +346,30 @@
 %					References
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\begin{frame}
+\begin{frame}{References}
 
-
-%\bibliography{pointwise_refrences}
+%\bibliography{scicomp_references}
 %\bibliographystyle{plain}
-\vspace{0mm}
 
-{\scriptsize
-\begin{thebibliography}{10}
+\begin{thebibliography}{1}
 
-\bibitem{A}
-Shmuel Agmon. 
-\newblock {\em }Princeton University Press, Princeton, NJ; University of Tokyo Press, Tokyo, 1982.
-
-\bibitem{BFS}
-Volker Bach, J\"{u}rg Fr\"{o}hlich, and Israel~Michael Sigal.
-\newblock {\em Comm. Math. Phys.}, 207(2):249--290, 1999.
-
-\bibitem{DHSV78}
-P.~Deift, W.~Hunziker, B.~Simon, and E.~Vock.
-\newblock {\em Comm. Math. Phys.}, 64(1):1--34, 1978/79.
-
-\bibitem{G}
-M.~Griesemer.
-\newblock {\em J. Funct. Anal.}, 210(2):321--340, 2004.
-
-\bibitem{HiHi2010}
-Takeru Hidaka and Fumio Hiroshima.
-\newblock {\em Rev. Math. Phys.}, 22(10):1181--1208, 2010.
-
-\bibitem{Hi14}
-Fumio Hiroshima.
-\newblock {\em Adv. Math.}, 259:784--840, 2014.
-
-\bibitem{Hiro2019}
-Fumio Hiroshima.
-\newblock In {\em Analysis and operator theory}, volume 146 of {\em Springer
-  Optim. Appl.}, pages 225--250. Springer, Cham, 2019.
-\vspace{-1mm}
-\bibitem{HiMa22}
-Fumio Hiroshima and Oliver Matte.
-\newblock {\em Rev. Math. Phys.}, 34(2):Paper No. 2250002, 84, 2022.
-
-\bibitem{M16}
-Oliver Matte.
-\newblock {\em Rev. Math. Phys.}, 28(5):1650011, 90, 2016.
-\vspace{-1mm}
-\bibitem{S79}
-Barry Simon.
-\newblock {\em J. Functional Analysis}, 32(1):97--101, 1979.
+\bibitem{scicomp}
+Dominik Göddeke.
+\newblock Scientific computing.
+\newblock Lecture Notes, June 2024.
+\newblock Version: 25th June 2024.
 
 \end{thebibliography}
-}
+
+
+\vspace{10mm} 
+
+\textbf{ChatGPT} was used for implementation details regarding sparse matrices and visualizing our numerically computed solution. 
+
 
 \end{frame}
+
+
 
 
 

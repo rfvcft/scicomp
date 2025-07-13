@@ -171,7 +171,7 @@ def test() -> None:
 
 
     preconditioned_solver = Solver(A_sparse, preconditioned=True)
-    x = preconditioned_solver.solve(b)
+    x, _ = preconditioned_solver.solve(b)
     
     print(f"x: {x}")
     print(f"A x: {A_sparse@x}")

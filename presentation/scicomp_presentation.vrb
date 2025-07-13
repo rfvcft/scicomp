@@ -1,0 +1,22 @@
+\frametitle{CG Method}
+\footnotesize
+\begin{verbatim}
+    def unpreconditioned_solve(self, b: np.ndarray, initial_guess: np.ndarray):
+    				x = initial_guess
+        r = p = b - self.A@x
+        alpha = np.dot(r, r)
+
+        for _ in range(self.max_iterations):
+            v = self.A@p
+            _lambda = alpha / np.dot(v, p)
+            x = x + _lambda * p
+            r = r - _lambda * v
+            alpha_new = np.dot(r, r)
+            p = r + (alpha_new / alpha) * p
+            alpha = alpha_new
+
+            if alpha < self.tol**2:
+                return x
+
+        return None
+\end{verbatim}
