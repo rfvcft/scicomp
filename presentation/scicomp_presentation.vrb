@@ -2,7 +2,7 @@
 \footnotesize
 \begin{verbatim}
     def unpreconditioned_solve(self, b: np.ndarray, initial_guess: np.ndarray):
-    				x = initial_guess
+    	x = initial_guess
         r = p = b - self.A@x
         alpha = np.dot(r, r)
 

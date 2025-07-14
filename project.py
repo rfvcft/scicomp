@@ -212,7 +212,7 @@ if __name__ == '__main__':
         return 0.5 * int((x_1 - y_1)**2 + (x_2 - y_2)**2 < r**2)
 
     N = 80
-    M = 150
+    M = 40
     T = 10.0
 
     # test = Test(N, M, T, 4, 124)
@@ -222,6 +222,6 @@ if __name__ == '__main__':
     ts = TimeStepper(N, M, T, u_init, f, g, preconditioned=True)
     t_list, u_list = ts.step()
 
-    vis = Visualizer(t_list, u_list)
-    vis.animate()
+    # vis = Visualizer(t_list, u_list)
+    # vis.animate(output_filename="animation.gif")
 

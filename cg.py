@@ -2,6 +2,7 @@ import numpy as np
 from scipy.sparse import csr_matrix, csc_matrix, lil_matrix
 from scipy.sparse import csr_matrix, isspmatrix_csr, identity
 from scipy.sparse.linalg import spsolve_triangular, spilu, spsolve
+from scipy.linalg import solve_triangular
 from typing import Optional
 
 from line_profiler import profile
@@ -26,12 +27,12 @@ class Solver:
 
     @profile
     def incomplete_cholesky(self) -> np.matrix:
+        # ChatGPT helped with the specifics for implemenation for sparse matrices
         if not (self.A.shape[0] == self.A.shape[1]):
             raise ValueError("Matrix must be square")
         if not (self.A != self.A.T).nnz == 0:
             raise ValueError("Matrix must be symmetric")
 
-        #A = A_csr.tocsr()
         n = self.A.shape[0]
         L = lil_matrix((n, n))  # row-wise efficient
 
@@ -139,10 +140,8 @@ class Solver:
             x = x + _lambda * p
             r = r - _lambda * v 
             r_hat = spsolve_triangular(self.L, r, lower=True)
-            # r_hat = spsolve(self.L, r)
             alpha_new = np.dot(r_hat, r_hat)
             p = spsolve_triangular(self.L_T, r_hat, lower=False) + (alpha_new / alpha) * p
-            # p = spsolve(self.L_T, r_hat) + (alpha_new / alpha) * p
             alpha = alpha_new
 
             if testing:

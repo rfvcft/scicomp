@@ -40,7 +40,7 @@
 \usepackage{xcolor} % Für Farbe
 \usepackage{empheq} % Für Boxen
 \usepackage{verbatim}
-
+\usepackage{animate}
 
 
 \newcommand{\C}{\mathbb{C}} % komplexe
@@ -102,10 +102,10 @@
 % subtext below "Uni-Stuttgart" logo on frontpage
 \setLogoText{Department of Mathematics}
 % background image for titlepage, with and without size
-% \setTitlePic{decay.png}
+\setTitlePic{../images/animation_frame.png}
 % \defTitlePic{\includegraphics[height=6cm]{titlepic.jpg}}
 % complete removal of the image
-\defTitlePic{}
+% \defTitlePic{}
 
 
 % Define an individual footer. If not set a default footer is used which depends on the used beamer options: simtech, german, numbered
@@ -290,7 +290,7 @@ def sparse_laplacian(self) -> csr_matrix:
 \footnotesize
 \begin{verbatim}
     def unpreconditioned_solve(self, b: np.ndarray, initial_guess: np.ndarray):
-    				x = initial_guess
+    	x = initial_guess
         r = p = b - self.A@x 
         alpha = np.dot(r, r) 
 
@@ -309,6 +309,25 @@ def sparse_laplacian(self) -> csr_matrix:
         return None
 \end{verbatim}
 \end{frame}
+
+\begin{frame}
+      \animategraphics[loop,controls,autoplay,width=0.7\linewidth]{16.7}{../animation/animation-}{0}{149}
+\end{frame}
+
+
+\begin{frame}{Preconditioning}
+\begin{itemize}
+    \item $A$ is spd, we are doing CG $\rightsquigarrow$ Incomplete Cholesky as preconditioner.
+    \item We use IC(0) $\rightsquigarrow$ Sparsity pattern is conserved.
+    \item $A = L^TL$ $\rightsquigarrow$ $A \approx \tilde{L}^T\tilde{L}$
+    \item Improvements: Smaller conditioning number $\rightsquigarrow$ Fewer iterations needed
+    \item Downsides: Solve two sparse triangular systems $\rightsquigarrow$ More computing time per iteration
+\end{itemize}
+
+
+
+\end{frame}
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%RESULTS%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -339,6 +358,14 @@ def sparse_laplacian(self) -> csr_matrix:
 	\includegraphics[width=0.8\textwidth]{../images/time_test.png}
 \end{figure}
 \end{frame}
+
+\begin{frame}{Profiling}
+\begin{figure}
+    \includegraphics[width=\textwidth]{../images/line_profiler.png}
+\end{figure}
+
+\end{frame}
+
 
 
 
