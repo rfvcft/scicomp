@@ -256,8 +256,26 @@ Let $u_{i j}^{(\ell)} = u(x_{i j}, t_\ell)$, $0 \leq i, j < N$. Then
 \end{align*} 
 where $$(L u)_{i j} = u_{i - 1, j} + u_{i + 1, j} + u_{i, j - 1} + u_{i, j + 1} - 4 u_{i j}$$
 and $u_{i j}^{(\ell)} = g_{i j}^{(\ell)}$ in boundary points. 
+
+\vspace{10mm}
+Transfer to 1D by $n = iN + j$.
 \end{minipage}
 \end{frame}
+
+\begin{frame}{Discretization (summary)}
+    Set
+    \begin{equation*}
+        A = I - \frac{\delta t}{\delta x^2} L.
+    \end{equation*}
+
+    Want to solve
+    \begin{equation*}
+       Au^{(\ell+1)} = u^{(\ell)} + \delta t\, f^{(\ell+1)}
+    \end{equation*}
+
+   \textbf{Note:} $A$ is spd! $\rightsquigarrow$ Use CG-method
+\end{frame}
+
 
 
 
@@ -319,7 +337,7 @@ def sparse_laplacian(self) -> csr_matrix:
 \begin{itemize}
     \item $A$ is spd, we are doing CG $\rightsquigarrow$ Incomplete Cholesky as preconditioner.
     \item We use IC(0) $\rightsquigarrow$ Sparsity pattern is conserved.
-    \item $A = L^TL$ $\rightsquigarrow$ $A \approx \tilde{L}^T\tilde{L}$
+    \item $A = L^TL$ $\rightsquigarrow$ $A \approx \tilde{L}^T\tilde{L} = P$
     \item Improvements: Smaller conditioning number $\rightsquigarrow$ Fewer iterations needed
     \item Downsides: Solve two sparse triangular systems $\rightsquigarrow$ More computing time per iteration
 \end{itemize}
